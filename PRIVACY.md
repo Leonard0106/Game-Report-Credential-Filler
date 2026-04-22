@@ -13,7 +13,9 @@ themselves.
 
 When the user clicks an "Open" button on the game-report accounts page,
 that page sends a `postMessage` containing the target URL, username,
-password, and optionally an extra login code.
+password, and optionally an extra login code. The extension only accepts
+this message when `event.origin` matches a hard-coded allowlist of
+game-report origins — messages from any other site are silently ignored.
 
 The extension:
 

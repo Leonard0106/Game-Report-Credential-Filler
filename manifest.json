@@ -2,7 +2,7 @@
     "manifest_version": 3,
     "name": "Game Report 帳密自動填入",
     "version": "1.0.0",
-    "description": "搭配 game-report 後台帳密管理頁，自動填入各遊戲供應商後台的登入資訊。",
+    "description": "Auto-fills login credentials from the game-report admin tool into operator backend login forms. 搭配 game-report 後台自動填入供應商登入資訊。",
     "icons": {
         "16": "icons/icon16.png",
         "48": "icons/icon48.png",

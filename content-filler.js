@@ -1,22 +1,32 @@
 (function () {
     'use strict';
 
-    // 讓網頁端能偵測擴充是否安裝
-    try {
-        document.documentElement.dataset.grExtension = '1';
-    } catch (e) { /* noop */ }
+    // 允許發送帳密給擴充的來源（game-report 後台 origin）。
+    const GR_ALLOWED_ORIGINS = [
+        'https://report.91url.cc',
+    ];
+
+    function isAllowedOrigin(origin) {
+        return GR_ALLOWED_ORIGINS.indexOf(origin) !== -1;
+    }
+
+    // 只在 game-report 自己的頁面上標記擴充已安裝，避免在無關網站留指紋
+    if (isAllowedOrigin(location.origin)) {
+        try {
+            document.documentElement.dataset.grExtension = '1';
+        } catch (e) { /* noop */ }
+    }
 
     // ===== 1) 從 game-report 頁面收 postMessage，轉給 background 暫存 =====
     window.addEventListener('message', function (event) {
         if (event.source !== window) return;
+        if (!isAllowedOrigin(event.origin)) return;
         const msg = event.data;
         if (!msg || typeof msg !== 'object') return;
         if (msg.source !== 'gr-provider-accounts') return;
         if (msg.type !== 'GR_PREPARE_LOGIN') return;
 
-        chrome.runtime.sendMessage({ type: 'STORE_CREDS', payload: msg.payload }, function (res) {
-            // console.debug('[gr-ext] stored creds for', res && res.host);
-        });
+        chrome.runtime.sendMessage({ type: 'STORE_CREDS', payload: msg.payload });
     });
 
     // ===== 2) 對所有頁面：若 background 裡有本站的暫存帳密，就自動填入 =====
