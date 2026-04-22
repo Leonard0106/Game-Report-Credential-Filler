@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Game Report 帳密</title>
+    <style>
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, "Segoe UI", "Noto Sans TC", sans-serif;
+            width: 280px;
+        }
+
+        .wrap {
+            padding: 12px 14px;
+            background: #f1f5f9;
+        }
+
+        h1 {
+            font-size: 13px;
+            margin: 0 0 10px;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        h1::before {
+            content: "🔐";
+        }
+
+        .status {
+            background: #fff;
+            border-radius: 6px;
+            padding: 10px;
+            font-size: 12px;
+            line-height: 1.5;
+            color: #334155;
+            border: 1px solid #e2e8f0;
+        }
+
+        .status .label {
+            color: #64748b;
+            font-size: 11px;
+            margin-bottom: 4px;
+        }
+
+        .hosts {
+            margin-top: 8px;
+            max-height: 160px;
+            overflow-y: auto;
+        }
+
+        .hosts .item {
+            padding: 6px 8px;
+            border-radius: 4px;
+            background: #ecfdf5;
+            color: #065f46;
+            font-size: 11px;
+            margin-bottom: 4px;
+            word-break: break-all;
+        }
+
+        .hosts .item small {
+            color: #047857;
+            opacity: 0.7;
+        }
+
+        .empty {
+            color: #94a3b8;
+            font-size: 11px;
+            text-align: center;
+            padding: 10px 0;
+        }
+
+        .hint {
+            font-size: 11px;
+            color: #64748b;
+            margin-top: 10px;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <h1>Game Report 帳密</h1>
+        <div class="status">
+            <div class="label">擴充狀態</div>
+            <div style="color:#059669;font-weight:600;">✓ 運作中</div>
+            <div class="label" style="margin-top:8px;">目前暫存的登入指令</div>
+            <div class="hosts" id="hosts">
+                <div class="empty">（沒有暫存）</div>
+            </div>
+        </div>
+        <div class="hint">
+            從 game-report 後台帳密頁點「開啟」，帳密會被暫存 5 分鐘，目標分頁會自動填入。
+        </div>
+    </div>
+    <script src="popup.js"></script>
+</body>
+
+</html>
