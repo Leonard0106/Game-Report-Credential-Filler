@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  html, body { margin:0; padding:0; width:440px; height:280px; overflow:hidden; }
+  body {
+    font-family: "Segoe UI", "Noto Sans TC", -apple-system, sans-serif;
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    color: white;
+    padding: 32px 36px;
+    box-sizing: border-box;
+    position: relative;
+  }
+  .glow {
+    position: absolute;
+    top: -80px;
+    right: -80px;
+    width: 280px;
+    height: 280px;
+    background: radial-gradient(circle, rgba(16,185,129,0.22), transparent 70%);
+    pointer-events: none;
+  }
+  .lock { font-size: 52px; line-height: 1; margin-bottom: 14px; }
+  .title {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    margin-bottom: 2px;
+  }
+  .subtitle {
+    font-size: 22px;
+    font-weight: 600;
+    color: #10b981;
+    margin-bottom: 18px;
+  }
+  .tagline {
+    font-size: 13px;
+    color: #94a3b8;
+    line-height: 1.55;
+    max-width: 340px;
+  }
+</style>
+</head>
+<body>
+  <div class="glow"></div>
+  <div class="lock">🔐</div>
+  <div class="title">Game Report</div>
+  <div class="subtitle">帳密自動填入</div>
+  <div class="tagline">一鍵填入供應商後台的帳號、密碼與登錄代號，省下逐一複製貼上的時間。</div>
+</body>
+</html>

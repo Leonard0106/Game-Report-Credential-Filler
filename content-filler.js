@@ -29,10 +29,57 @@
         chrome.runtime.sendMessage({ type: 'STORE_CREDS', payload: msg.payload });
     });
 
-    // ===== 2) 對所有頁面：若 background 裡有本站的暫存帳密，就自動填入 =====
-    let filled = false;
+    // ===== 2) TOTP（Google 2FA）生成：純前端 Web Crypto + base32 =====
+    function base32Decode(input) {
+        const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+        const cleaned = String(input).replace(/[\s=]/g, '').toUpperCase();
+        if (!cleaned) throw new Error('TOTP 密鑰為空');
+        let bits = 0, value = 0;
+        const out = [];
+        for (const ch of cleaned) {
+            const v = alphabet.indexOf(ch);
+            if (v < 0) throw new Error('TOTP 密鑰含非法字元：' + ch);
+            value = (value << 5) | v;
+            bits += 5;
+            if (bits >= 8) {
+                out.push((value >>> (bits - 8)) & 0xff);
+                bits -= 8;
+            }
+        }
+        return new Uint8Array(out);
+    }
+
+    async function generateTOTP(secret, digits, step) {
+        digits = digits || 6;
+        step = step || 30;
+        const key = base32Decode(secret);
+        const counter = Math.floor(Date.now() / 1000 / step);
+        const buf = new ArrayBuffer(8);
+        const view = new DataView(buf);
+        // 8-byte big-endian counter
+        view.setUint32(0, Math.floor(counter / 0x100000000));
+        view.setUint32(4, counter >>> 0);
+
+        const cryptoKey = await crypto.subtle.importKey(
+            'raw', key,
+            { name: 'HMAC', hash: 'SHA-1' },
+            false, ['sign']
+        );
+        const sig = new Uint8Array(await crypto.subtle.sign('HMAC', cryptoKey, buf));
+        const offset = sig[sig.length - 1] & 0x0f;
+        const code = (
+            ((sig[offset] & 0x7f) << 24) |
+            (sig[offset + 1] << 16) |
+            (sig[offset + 2] << 8) |
+            sig[offset + 3]
+        ) % Math.pow(10, digits);
+        return code.toString().padStart(digits, '0');
+    }
+
+    // ===== 3) 對所有頁面：若 background 裡有本站的暫存帳密，就自動填入 =====
     let retries = 0;
     const MAX_RETRIES = 10;
+    const filledFields = { user: false, pwd: false, code: false, totp: false };
 
     function setNativeValue(el, value) {
         // 觸發 React/Vue 的 value setter，讓框架偵測到變更
@@ -56,42 +103,67 @@
         return st.visibility !== 'hidden' && st.display !== 'none';
     }
 
+    function fieldSignature(el) {
+        return (el.name || '') + ' ' + (el.id || '') + ' ' + (el.placeholder || '') +
+            ' ' + (el.getAttribute('aria-label') || '') + ' ' + (el.getAttribute('autocomplete') || '');
+    }
+
+    const CODE_RE = /代號|代号|代理|子代|上層|上级|商戶|商户|公司|merchant|company|corp|agent|site ?code|partner|vendor/i;
+    const TOTP_RE = /2fa|otp|totp|驗證碼|验证码|動態碼|动态码|動態密碼|动态密码|一次性|one.?time.?code|authenticator|auth.?code|security.?code|谷歌.?驗|google.?auth/i;
+
     function findLoginFields() {
-        const passwords = Array.from(document.querySelectorAll('input[type="password"]')).filter(isVisible);
-        if (passwords.length === 0) return null;
-        const pwd = passwords[0];
-
-        // 抓可見的 text/email/空 input 當候選帳號欄（排除密碼本身）
         const all = Array.from(document.querySelectorAll('input')).filter(isVisible);
-        const textTypes = new Set(['', 'text', 'email', 'tel', 'search']);
+        const textTypes = new Set(['', 'text', 'email', 'tel', 'search', 'number']);
 
-        // 帳號欄：在密碼欄之前最近一個符合的 text 類輸入
-        const pwdIdx = all.indexOf(pwd);
+        // 密碼欄（可能不存在：獨立 2FA 頁）
+        const passwords = Array.from(document.querySelectorAll('input[type="password"]')).filter(isVisible);
+        const pwd = passwords[0] || null;
+
+        // 帳號欄：在密碼欄之前最近一個符合的 text 類輸入；無密碼時 null
         let userInput = null;
-        for (let i = pwdIdx - 1; i >= 0; i--) {
-            const t = (all[i].type || '').toLowerCase();
-            if (textTypes.has(t)) { userInput = all[i]; break; }
-        }
-        // 找不到往後找
-        if (!userInput) {
-            for (let i = pwdIdx + 1; i < all.length; i++) {
+        if (pwd) {
+            const pwdIdx = all.indexOf(pwd);
+            for (let i = pwdIdx - 1; i >= 0; i--) {
                 const t = (all[i].type || '').toLowerCase();
                 if (textTypes.has(t)) { userInput = all[i]; break; }
             }
+            if (!userInput) {
+                for (let i = pwdIdx + 1; i < all.length; i++) {
+                    const t = (all[i].type || '').toLowerCase();
+                    if (textTypes.has(t)) { userInput = all[i]; break; }
+                }
+            }
         }
 
-        // 登錄代號欄：name/id/placeholder 含關鍵字的 text 輸入
-        const CODE_RE = /代號|代码|商戶|商户|公司|merchant|company|corp|agent|site ?code|partner|vendor/i;
-        let codeInput = null;
+        // TOTP 欄：autocomplete=one-time-code 優先，其次關鍵字匹配
+        let totpInput = null;
         for (const el of all) {
-            if (el === userInput || el === pwd) continue;
+            if (el === pwd) continue;
             const t = (el.type || '').toLowerCase();
             if (!textTypes.has(t)) continue;
-            const sig = (el.name || '') + ' ' + (el.id || '') + ' ' + (el.placeholder || '') + ' ' + (el.getAttribute('aria-label') || '');
-            if (CODE_RE.test(sig)) { codeInput = el; break; }
+            if ((el.getAttribute('autocomplete') || '').toLowerCase() === 'one-time-code') {
+                totpInput = el; break;
+            }
+        }
+        if (!totpInput) {
+            for (const el of all) {
+                if (el === pwd || el === userInput) continue;
+                const t = (el.type || '').toLowerCase();
+                if (!textTypes.has(t)) continue;
+                if (TOTP_RE.test(fieldSignature(el))) { totpInput = el; break; }
+            }
         }
 
-        return { userInput, pwd, codeInput };
+        // 登錄代號欄：name/id/placeholder 含關鍵字的 text 輸入（排除已識別的欄位）
+        let codeInput = null;
+        for (const el of all) {
+            if (el === userInput || el === pwd || el === totpInput) continue;
+            const t = (el.type || '').toLowerCase();
+            if (!textTypes.has(t)) continue;
+            if (CODE_RE.test(fieldSignature(el))) { codeInput = el; break; }
+        }
+
+        return { userInput, pwd, codeInput, totpInput };
     }
 
     function showToast(msg, isError) {
@@ -114,36 +186,68 @@
         setTimeout(function () { div.remove(); }, 3200);
     }
 
+    function consumeCreds() {
+        chrome.runtime.sendMessage({ type: 'CONSUME_CREDS_FOR', url: location.href });
+    }
+
     function attemptFill() {
-        if (filled) return;
+        // 若全部該填的都填了就停
         chrome.runtime.sendMessage({ type: 'GET_CREDS_FOR', url: location.href }, function (creds) {
             if (!creds) return;
 
             const fields = findLoginFields();
-            if (!fields) {
-                // 還沒有 password 欄（SPA 可能還在載），稍後重試
+            if (!fields || (!fields.pwd && !fields.totpInput)) {
+                // 還沒有任何可辨識的登入欄位，稍後重試
                 if (retries++ < MAX_RETRIES) setTimeout(attemptFill, 500);
                 return;
             }
 
-            const { userInput, pwd, codeInput } = fields;
+            const { userInput, pwd, codeInput, totpInput } = fields;
+            const hasTotp = !!creds.totp_secret;
+            const filledHere = [];
 
-            if (userInput && creds.username) setNativeValue(userInput, creds.username);
-            if (pwd && creds.password) setNativeValue(pwd, creds.password);
-            if (codeInput && creds.login_code) setNativeValue(codeInput, creds.login_code);
+            if (!filledFields.user && userInput && !userInput.value && creds.username) {
+                setNativeValue(userInput, creds.username);
+                filledFields.user = true;
+                filledHere.push('帳號');
+            }
+            if (!filledFields.pwd && pwd && !pwd.value && creds.password) {
+                setNativeValue(pwd, creds.password);
+                filledFields.pwd = true;
+                filledHere.push('密碼');
+            }
+            if (!filledFields.code && codeInput && !codeInput.value && creds.login_code) {
+                setNativeValue(codeInput, creds.login_code);
+                filledFields.code = true;
+                filledHere.push('登錄代號');
+            }
 
-            filled = true;
+            if (!filledFields.totp && totpInput && !totpInput.value && hasTotp) {
+                filledFields.totp = true; // 先標記避免重入
+                generateTOTP(creds.totp_secret).then(function (code) {
+                    setNativeValue(totpInput, code);
+                    showToast('已自動填入 2FA（' + code + '），請盡快點登入');
+                    // TOTP 填完代表最後一步，用完即焚
+                    consumeCreds();
+                }).catch(function (err) {
+                    filledFields.totp = false; // 還原以利下次重試
+                    console.warn('[GR] TOTP 計算失敗', err);
+                    showToast('2FA 計算失敗：' + (err && err.message || err), true);
+                });
+                return; // 非同步流程，交給 then/catch 決定後續
+            }
 
-            // 用完即丟，避免表單出錯重整後被二次填入造成困擾
-            chrome.runtime.sendMessage({ type: 'CONSUME_CREDS_FOR', url: location.href });
+            if (filledHere.length === 0) return;
 
-            const missed = [];
-            if (!userInput && creds.username) missed.push('帳號');
-            if (codeInput === null && creds.login_code) missed.push('登錄代號');
-            if (missed.length) {
-                showToast('已自動填入密碼，找不到：' + missed.join('、') + '，請手動貼上');
+            // 同步路徑的 toast + consume 判斷：
+            // - 有 TOTP 密鑰但本頁沒找到 TOTP 欄 → 保留暫存，等 2FA 獨立頁
+            // - 沒有 TOTP 密鑰 → 填完就消耗
+            const stillWaitingTotp = hasTotp && !totpInput;
+            if (stillWaitingTotp) {
+                showToast('已填入 ' + filledHere.join('、') + '，登入後會自動填 2FA');
             } else {
-                showToast('已自動填入，請確認後點登入');
+                showToast('已自動填入 ' + filledHere.join('、') + '，請確認後點登入');
+                consumeCreds();
             }
         });
     }
@@ -152,11 +256,11 @@
         attemptFill();
         // 針對 SPA / 非同步出現的表單：監聽 DOM 變化
         const mo = new MutationObserver(function () {
-            if (!filled) attemptFill();
+            attemptFill();
         });
         mo.observe(document.documentElement, { childList: true, subtree: true });
-        // 安全保險：30 秒後停止觀察
-        setTimeout(function () { mo.disconnect(); }, 30000);
+        // 安全保險：60 秒後停止觀察（比原本 30 秒長，涵蓋跨頁 2FA 情境）
+        setTimeout(function () { mo.disconnect(); }, 60000);
     }
 
     if (document.readyState === 'loading') {

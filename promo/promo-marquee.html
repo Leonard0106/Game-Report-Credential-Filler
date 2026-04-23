@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  html, body { margin:0; padding:0; width:1400px; height:560px; overflow:hidden; }
+  body {
+    font-family: "Segoe UI", "Noto Sans TC", -apple-system, sans-serif;
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    color: white;
+    display: flex;
+    padding: 64px 90px;
+    box-sizing: border-box;
+    position: relative;
+  }
+  .glow1 { position:absolute; top:-180px; left:-120px; width:560px; height:560px; background:radial-gradient(circle, rgba(16,185,129,0.15), transparent 70%); pointer-events:none; }
+  .glow2 { position:absolute; bottom:-180px; right:-120px; width:560px; height:560px; background:radial-gradient(circle, rgba(59,130,246,0.12), transparent 70%); pointer-events:none; }
+
+  .left { flex:1; display:flex; flex-direction:column; justify-content:center; padding-right:60px; position:relative; z-index:1; }
+  .lock { font-size: 64px; margin-bottom: 20px; line-height:1; }
+  .title { font-size: 44px; font-weight: 700; margin-bottom: 6px; letter-spacing: 0.4px; }
+  .subtitle { font-size: 34px; font-weight: 600; color: #10b981; margin-bottom: 26px; }
+  .tagline { font-size: 17px; color: #cbd5e1; line-height: 1.65; margin-bottom: 22px; max-width: 520px; }
+  .features { list-style:none; padding:0; margin:0; }
+  .features li { font-size:14.5px; color:#94a3b8; padding:5px 0; }
+  .features li::before { content:"✓  "; color:#10b981; font-weight:bold; }
+
+  .right { flex:1; display:flex; align-items:center; justify-content:center; position:relative; z-index:1; }
+  .mockup {
+    background: white;
+    border-radius: 12px;
+    padding: 30px 32px 32px;
+    width: 380px;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.45);
+    position: relative;
+    color: #334155;
+  }
+  .mockup-header { font-size:11px; color:#94a3b8; margin-bottom:4px; text-transform:uppercase; letter-spacing:1.2px; font-weight:600; }
+  .mockup-title { font-size:20px; font-weight:700; color:#1e293b; margin-bottom:18px; }
+  .field { margin-bottom:12px; }
+  .label { font-size:12px; color:#64748b; margin-bottom:5px; display:block; }
+  .input {
+    border-radius:6px;
+    padding:10px 12px;
+    font-size:14px;
+    box-sizing:border-box;
+    font-family: inherit;
+    background:#ecfdf5;
+    border:1px solid #86efac;
+    color:#065f46;
+    font-weight:500;
+  }
+  .btn {
+    background:#1e293b; color:white; border:none; border-radius:6px;
+    padding:11px 20px; font-size:14px; font-weight:600;
+    margin-top:10px; width:100%; text-align:center;
+  }
+  .toast {
+    position:absolute;
+    bottom:-18px;
+    right:-24px;
+    background:#1e293b;
+    color:white;
+    padding:11px 16px;
+    border-radius:6px;
+    font-size:13px;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.45);
+    white-space:nowrap;
+    font-weight:500;
+  }
+</style>
+</head>
+<body>
+  <div class="glow1"></div>
+  <div class="glow2"></div>
+
+  <div class="left">
+    <div class="lock">🔐</div>
+    <div class="title">Game Report</div>
+    <div class="subtitle">帳密自動填入</div>
+    <div class="tagline">搭配 game-report 後台使用，一鍵填入各遊戲供應商後台的帳號、密碼與登錄代號。</div>
+    <ul class="features">
+      <li>帳密僅暫存於 chrome.storage.session，關閉瀏覽器即清除</li>
+      <li>5 分鐘未使用自動過期、填入目標頁後立即刪除</li>
+      <li>不上傳任何資料，無追蹤、無分析、無遠端程式碼</li>
+    </ul>
+  </div>
+
+  <div class="right">
+    <div class="mockup">
+      <div class="mockup-header">Operator Backend</div>
+      <div class="mockup-title">登入</div>
+      <div class="field">
+        <span class="label">帳號</span>
+        <div class="input">demo-user</div>
+      </div>
+      <div class="field">
+        <span class="label">密碼</span>
+        <div class="input">••••••••••••</div>
+      </div>
+      <div class="field">
+        <span class="label">登錄代號</span>
+        <div class="input">DEMO001</div>
+      </div>
+      <div class="btn">登入</div>
+      <div class="toast">🔐 已自動填入，請確認後點登入</div>
+    </div>
+  </div>
+</body>
+</html>
